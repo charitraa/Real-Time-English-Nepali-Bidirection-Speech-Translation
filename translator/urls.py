@@ -16,7 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from .views import EnToNeView, NeToEnView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path("translate/en-to-ne/", EnToNeView.as_view(), name="en-to-ne"),
+    path("translate/ne-to-en/", NeToEnView.as_view(), name="ne-to-en"),
 ]
