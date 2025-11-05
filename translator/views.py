@@ -1,26 +1,38 @@
+# translator/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 from .translator import LocalTranslator
+from .pipeline import SpeechTranslator
 
-# Initialize once (so models load only once)
 translator = LocalTranslator()
-
-class EnToNeView(APIView):
+speech_translator = SpeechTranslator()
+    
+# TEXT TRANSLATION
+class TextTranslateView(APIView):
     def post(self, request):
         text = request.data.get("text", "")
+        direction = request.data.get("direction", "en2ne")
         if not text:
-            return Response({"error": "No text provided"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "No text"}, status=400)
 
-        translation = translator.translate_en_to_ne(text)
-        return Response({"input": text, "translation": translation})
+        if direction == "en2ne":
+            result = translator.translate_en_to_ne(text)
+        else:
+            result = translator.translate_ne_to_en(text)
 
+        return Response({"input": text, "translation": result, "direction": direction})
 
-class NeToEnView(APIView):
+# translator/views.py
+class SpeechTranslateView(APIView):
     def post(self, request):
-        text = request.data.get("text", "")
-        if not text:
-            return Response({"error": "No text provided"}, status=status.HTTP_400_BAD_REQUEST)
+        audio = request.FILES.get("audio")
 
-        translation = translator.translate_ne_to_en(text)
-        return Response({"input": text, "translation": translation})
+        if not audio:
+            return Response({"error": "No audio file"}, status=400)
+
+        try:
+            result = speech_translator.speech_to_speech(audio)
+            return Response(result)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
