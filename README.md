@@ -1,154 +1,195 @@
-# FYP Translator
+# Real Time English Nepali Bidirection Speech Translation Translator  
+### **Speech-to-Speech Translation (English ↔ Nepali)**  
+*Powered by Whisper, Fine-tuned mBART50, and Coqui/gTTS*
 
-**FYP Translator** is an end-to-end speech-to-text translation pipeline
-that leverages **Whisper (OpenAI)** for Automatic Speech Recognition
-(ASR) and **LangDetect** for language detection. It supports both **CPU
-and GPU (CUDA)** inference with automatic fallback, making it suitable
-for deployment on various hardware configurations.
+![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-orange)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
-This project is designed as a modular, extensible system ideal for
-final-year projects (FYP), research prototypes, or production-grade
-speech translation applications.
+---
 
-------------------------------------------------------------------------
+**Real Time English Nepali Bidirection Speech Translation Translator** is a **real-time, end-to-end speech-to-speech translation system** designed for **English ↔ Nepali** communication. It combines state-of-the-art models into a **modular, GPU-accelerated pipeline**:
+
+| Component         | Model / Library               |
+|------------------|-------------------------------|
+| **ASR**           | OpenAI **Whisper** (tiny → large) |
+| **Translation**   | **Fine-tuned mBART50** (EN ↔ NE) |
+| **TTS**           | **gTTS** or **Coqui TTS**       |
+| **Lang Detect**   | `langdetect`                  |
+| **Backend**       | PyTorch, CUDA, Fast Inference |
+
+Perfect for **Final Year Projects**, **research prototypes**, or **production deployment**.
+
+---
 
 ## Features
 
--   **Whisper-based ASR** with support for multiple model sizes (`tiny`,
-    `base`, `small`, `medium`, `large`)
--   **GPU Acceleration** via PyTorch with CUDA detection and graceful
-    CPU fallback
--   **Language Detection** using `langdetect` for input audio
--   **Modular Pipeline Architecture** (`pipeline.py`, `asr.py`,
-    `translator.py`, etc.)
--   **Configurable via Environment Variables**
--   **Caching Support** (`__pycache__`, model weights)
--   **Temporary File Management** (`temp_audio/`, `output/`)
--   **Git Version Control Ready**
+| Feature | Description |
+|-------|-------------|
+| **Speech-to-Speech** | Full audio in → translated audio out |
+| **Nepali ↔ English** | Bidirectional, culturally aware translation |
+| **GPU Auto Detection** | GPU auto-detect + fallback to CPU |
+| **Modular Design** | `asr.py`, `translator.py`, `tts.py`, `pipeline.py` |
+| **Model Caching** | Whisper + mBART weights stored locally |
+| **Configurable** | Via environment vars or CLI |
+| **Production Ready** | WSGI, API endpoints, logging |
 
-------------------------------------------------------------------------
+---
 
 ## Project Structure
 
-    fyp_translator/
-    ├── asr.py              
-    ├── translator.py       
-    ├── pipeline.py         
-    ├── settings.py         
-    ├── tts.py              
-    ├── urls.py             
-    ├── views.py            
-    ├── wsgi.py             
-    ├── __init__.py
-    ├── env/                
-    ├── models/             
-    ├── temp_audio/         
-    ├── output/             
-    ├── translator/
-    │   └── __pycache__/
-    ├── .ipynb_checkpoints/
-    ├── requirements.txt    
-    └── README.md           
+```bash
+Real Time English Nepali Bidirection Speech Translation_translator/
+├── asr.py              # Whisper ASR
+├── translator.py       # mBART50 translation (EN↔NE)
+├── tts.py              # Text-to-Speech (gTTS / Coqui)
+├── pipeline.py         # End-to-end S2S pipeline
+├── settings.py         # Config & constants
+├── urls.py             # API routes
+├── views.py            # Web views (optional UI)
+├── wsgi.py             # Production entry
+│
+├── models/
+│   ├── whisper/
+│   └── mbart/
+│       ├── config.json
+│       ├── pytorch_model.bin
+│       ├── tokenizer.json
+│       └── sentencepiece.bpe.model
+│
+├── temp_audio/
+├── output/
+├── env/
+└── requirements.txt
+```
 
-------------------------------------------------------------------------
+---
 
 ## Installation
 
-### 1. Clone the Repository
-
-``` bash
-git clone https://github.com/yourusername/fyp-translator.git
-cd fyp-translator
+### 1. Clone
+```bash
+git clone https://github.com/charitraa/fyp_translator.git
+cd fyp_translator
 ```
 
-### 2. Set Up Virtual Environment
-
-``` bash
+### 2. Virtual Environment
+```bash
 python -m venv env
-source env/bin/activate    # Linux/Mac
-env\Scripts\activate     # Windows
+source env/bin/activate
 ```
 
 ### 3. Install Dependencies
-
-``` bash
+```bash
 pip install -r requirements.txt
 ```
 
-### 4. (Optional) Enable GPU
+### GPU Users
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+```
 
-``` bash
+### Force GPU
+```bash
 export USE_GPU=1
 ```
 
-------------------------------------------------------------------------
+---
 
 ## Usage
 
-### Run the Pipeline
-
-``` bash
-python pipeline.py --input temp_audio/input.wav --model small
+### Run Full Pipeline
+```bash
+python pipeline.py \
+  --input temp_audio/hello_nepali.wav \
+  --asr-model small \
+  --use-mbart \
+  --use-tts \
+  --tts-engine gtts
 ```
 
-### Example in Python
+## mBART Translation Example
 
-``` python
-from pipeline import TranslationPipeline
+```python
+from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
 
-pipeline = TranslationPipeline(model_size="small", use_gpu=True)
-result = pipeline.process("temp_audio/sample.mp3")
-print(result)
+model = MBartForConditionalGeneration.from_pretrained("models/mbart")
+tok = MBart50TokenizerFast.from_pretrained("models/mbart")
+
+text = "My name is Ravi."
+tok.src_lang = "en_XX"
+inputs = tok(text, return_tensors="pt")
+generated = model.generate(**inputs, forced_bos_token_id=tok.lang_code_to_id["ne_NP"])
+print(tok.decode(generated[0], skip_special_tokens=True))
 ```
 
-------------------------------------------------------------------------
+---
 
-## Configuration
+## TTS Example
 
-  Environment Variable   Description                        Default
-  ---------------------- ---------------------------------- -------------
-  USE_GPU                Force GPU usage (1 or 0)           Auto-detect
-  MODEL_SIZE             Whisper model (tiny, base, etc.)   small
-  COMPUTE_TYPE           float16 (GPU) or int8 (CPU)        Auto
+```python
+from tts import TextToSpeech
 
-------------------------------------------------------------------------
+tts = TextToSpeech(engine="gtts")
+tts.speak("नमस्ते, तपाईंलाई कस्तो छ?", lang="ne", output_path="output/greeting_ne.mp3")
+```
 
-## Supported Audio Formats
+---
 
-`.wav, .mp3, .m4a, .flac, .ogg`
+## Supported Formats
+```
+.wav | .mp3 | .m4a | .flac | .ogg
+```
 
-------------------------------------------------------------------------
+---
 
-## GPU Support
+## GPU / CPU Logic
 
-``` python
+```python
 if use_gpu and torch.cuda.is_available():
     device = "cuda"
     compute_type = "float16"
+    print("Using GPU for Whisper & mBART")
 else:
     device = "cpu"
     compute_type = "int8"
+    print("GPU failed → Using CPU (int8)")
 ```
 
-------------------------------------------------------------------------
+---
 
-## Extending the Project
+## Configuration
 
--   Add Translation API in `translator.py`
--   Add TTS Output using `tts.py`
--   Build Web UI
--   Deploy API via `wsgi.py`
+| Env Var | Values | Default |
+|--------|--------|---------|
+| USE_GPU | 1 / 0 | Auto |
+| ASR_MODEL | tiny, small, base | small |
+| USE_MBART | True / False | True |
+| USE_TTS | True / False | True |
+| TTS_ENGINE | gtts, coqui | gtts |
 
-------------------------------------------------------------------------
+---
 
-## License
+## Extending
 
-MIT License © 2025 Your Name
+- Add FastAPI UI  
+- Deploy with Nginx + Gunicorn  
+- Add real-time streaming  
+- Train Nepali TTS model  
+- Add Hindi, Tamil, Bengali support  
 
-------------------------------------------------------------------------
+---
+
+## License  
+MIT License © 2025 Charitra Shrestha
+
+---
 
 ## Contact
+**Charitra Shrestha**  
+📧 stharabi9862187405@gmail.com  
+🐙 GitHub: **@charitraa**  
+🚀 Demo coming soon!
 
-Charitra Shrestha\
-📧 charitra@example.com\
-💻 GitHub: @charitraa
+"Breaking language barriers, one voice at a time."
