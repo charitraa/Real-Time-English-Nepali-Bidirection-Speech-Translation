@@ -1,32 +1,42 @@
-# translate_from_local.py
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+# translator/translator.py
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from IndicTransToolkit.processor import IndicProcessor
+import torch
 
 class LocalTranslator:
-    def __init__(self, en2ne_path="models/en2ne", ne2en_path="models/ne2en"):
-        # Load English -> Nepali
-        self.en2ne_tokenizer = AutoTokenizer.from_pretrained(en2ne_path)
-        self.en2ne_model = AutoModelForSeq2SeqLM.from_pretrained(en2ne_path)
+    def __init__(self, model_dir="models"):
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.ip = IndicProcessor(inference=True)
 
-        # Load Nepali -> English
-        self.ne2en_tokenizer = AutoTokenizer.from_pretrained(ne2en_path)
-        self.ne2en_model = AutoModelForSeq2SeqLM.from_pretrained(ne2en_path)
+        # Load models
+        self.ne2en_tokenizer = AutoTokenizer.from_pretrained(f"{model_dir}/ne2en", trust_remote_code=True)
+        self.ne2en_model = AutoModelForSeq2SeqLM.from_pretrained(f"{model_dir}/ne2en", trust_remote_code=True).to(self.device)
+
+        self.en2ne_tokenizer = AutoTokenizer.from_pretrained(f"{model_dir}/en2ne", trust_remote_code=True)
+        self.en2ne_model = AutoModelForSeq2SeqLM.from_pretrained(f"{model_dir}/en2ne", trust_remote_code=True).to(self.device)
 
     def translate_en_to_ne(self, text: str) -> str:
-        encoded = self.en2ne_tokenizer(
-            text, return_tensors="pt", truncation=True, padding=True, max_length=128
-        )
-        generated = self.en2ne_model.generate(**encoded, max_length=128)
-        return self.en2ne_tokenizer.decode(generated[0], skip_special_tokens=True)
+        src_lang = "eng_Latn"
+        tgt_lang = "npi_Deva"
+
+        batch = self.ip.preprocess_batch([text], src_lang=src_lang, tgt_lang=tgt_lang)
+        inputs = self.en2ne_tokenizer(batch, truncation=True, padding="longest", return_tensors="pt", return_attention_mask=True).to(self.device)
+
+        with torch.no_grad():
+            generated = self.en2ne_model.generate(**inputs, use_cache=False, max_length=256, num_beams=5)
+
+        decoded = self.en2ne_tokenizer.batch_decode(generated, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        return self.ip.postprocess_batch(decoded, lang=tgt_lang)[0]
 
     def translate_ne_to_en(self, text: str) -> str:
-        self.ne2en_tokenizer.src_lang = "ne_NP"
-        encoded = self.ne2en_tokenizer(
-            text, return_tensors="pt", truncation=True, padding=True, max_length=128
-        )
-        generated = self.ne2en_model.generate(
-            **encoded,
-            forced_bos_token_id=self.ne2en_tokenizer.lang_code_to_id["en_XX"],
-            max_length=128
-        )
-        return self.ne2en_tokenizer.decode(generated[0], skip_special_tokens=True)
+        src_lang = "npi_Deva"
+        tgt_lang = "eng_Latn"
 
+        batch = self.ip.preprocess_batch([text], src_lang=src_lang, tgt_lang=tgt_lang)
+        inputs = self.ne2en_tokenizer(batch, truncation=True, padding="longest", return_tensors="pt", return_attention_mask=True).to(self.device)
+
+        with torch.no_grad():
+            generated = self.ne2en_model.generate(**inputs, use_cache=False, max_length=256, num_beams=5)
+
+        decoded = self.ne2en_tokenizer.batch_decode(generated, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        return self.ip.postprocess_batch(decoded, lang=tgt_lang)[0]
